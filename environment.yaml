@@ -1,0 +1,13 @@
+name: env_pp
+channels:
+  - defaults
+dependencies:
+  - python
+  - numpy
+  - jupyter
+  - pandas
+  - matplotlib
+  - seaborn
+  - scikit-learn
+  - scipy
+  - graphviz
