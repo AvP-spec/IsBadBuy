@@ -1,6 +1,8 @@
 # IsBadBy
 ## Work on Keggle competition Don't Get Kicked
-https://www.kaggle.com/competitions/DontGetKicked
+
+https://www.kaggle.com/competitions/DontGetKicked 
+
 https://www.kaggle.com/c/DontGetKicked/data?select=test.csv
 
 
