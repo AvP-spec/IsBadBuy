@@ -1,4 +1,4 @@
-# IsBadBy
+# IsBadBuy
 ## Work on Keggle competition Don't Get Kicked
 
 - title: Don't Get Kicked!
