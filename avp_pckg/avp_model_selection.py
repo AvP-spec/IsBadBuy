@@ -157,10 +157,11 @@ def split_cat_cols_names(X, y, cols_cat, max_cat=25):
   #  print('split_cat_cols_names')
   #  print(cols_cat)
     df = X[cols_cat].copy()
+    y_ = pd.DataFrame(y.copy())
   #  print('pass')
-    df.insert(0, y.columns[0], y.copy())
+    df.insert(0, y_.columns[0], y_)
     df = AvPdataFrame(df)
-    df_imp = df.cols_importance(cols=cols_cat, target=y.columns[0])
+    df_imp = df.cols_importance(cols=cols_cat, target=y_.columns[0])
     # 'No_categories' - number of categories calculated by cols_importance()
     df_catS = df_imp[df_imp['No_categories'] <= max_cat] 
     cols_catS = list(df_catS.index)
