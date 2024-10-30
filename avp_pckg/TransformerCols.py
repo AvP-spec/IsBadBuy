@@ -468,9 +468,5 @@ class IsBadBuyTransformer(TransformerMixin, BaseEstimator):
     def __str__(self):
         return 'I am IsBadBuyTransformer'
     
-    
-class IsBadBuyTransformer1(TransformerMixin, BaseEstimator,):
-    
-    def __str__(self):
-        return 'I am IsBadBuyTransformer1'
+
     
