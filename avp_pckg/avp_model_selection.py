@@ -154,6 +154,12 @@ class PrepareColsAvP:
     
     
 def split_cat_cols_names(X, y, cols_cat, max_cat=25):
+    ''' seporate names of categorical collumns which have
+    number of categories more then max_cat: 
+    catL => large amount of categories
+    from those which have number of categories less then max_cat
+    catS => small amount of categories
+    '''
   #  print('split_cat_cols_names')
   #  print(cols_cat)
     df = X[cols_cat].copy()
@@ -183,15 +189,39 @@ def cross_validate_pipe(X,          # features
                         cv=5,        # number of cross validation spits
                         max_cat=50,    # int, maximum categories for one-hot-encoder and target encoder
                         estimator_name='tree', # 'forest', 'logistic', 
-                        pipe_name = 'base',
+                        pipe_name = 'base', # 'TargetEncoder', 'TE_AvP'
                         n_jobs=-1,
-                        kwards_fixed = {'class_weight':'balanced', 'random_state':42}
+                        kwards_fixed = {
+                            'class_weight':'balanced', 
+                            'random_state':42
+                            } # key words for the model
                         ):
-    '''  '''
+    '''Calculate Cross-Validation curves for f1, precision and recall metrics 
+    for selection of a model parameters. 
+    
+    Parameters:
+    -----------
+    esctimator_name:
+        tree = DecisionTreeClassifier
+        forest = RandomForestClassifier
+        logistic = LogisticRegression classifier
+    
+    pipe_name: name of a pipline for data preprocessing 
+    
+    Returns:
+    --------
+    cross validation score dictionry 
+    
+    '''
+    
+    ############################################
+    ## make copy of values which can be modefied 
     cols_num_ = cols_num.copy()
     cols_cat_ = cols_cat.copy()
     X_ = X.copy()
     y_ = y.copy()
+    
+    ## transfer numreical cols to categorical
     if num_to_cat_dict: 
         for col in num_to_cat_dict.keys():
           #  print(col + '_avp')
@@ -203,7 +233,10 @@ def cross_validate_pipe(X,          # features
         
     # print(cols_cat_)
     # print(cols_num_)
-        
+    
+    ## seporate names of categorical collumns which have
+    ## catL => large amount of categories
+    ## catS => small amount of categories
     cols_catS, cols_catL = split_cat_cols_names(X_,
                                                 y_,
                                                 cols_cat=cols_cat_,
@@ -290,7 +323,7 @@ def plot_scores(score_dckt:dict, param_name='max_depth', xlog=False):
     
     plot_single_score(df_test_f1, axs[0], color='k', xlabel=param_name, label='f1', title='test', xlog=xlog)
     plot_single_score(df_test_precision, axs[0], color='g', xlabel=param_name, label='precision', title='test', xlog=xlog)
-    plot_single_score(df_test_recall, axs[0], color='b',  xlabel='max_depth', label='recall', title='test', xlog=xlog)
+    plot_single_score(df_test_recall, axs[0], color='b',  xlabel=param_name, label='recall', title='test', xlog=xlog)
 
     plot_single_score(df_train_f1, axs[1], color='k', xlabel=param_name, label='f1', title='train', xlog=xlog)
     plot_single_score(df_train_precision, axs[1], color='g', xlabel=param_name, label='precision', title='train', xlog=xlog)
@@ -299,7 +332,7 @@ def plot_scores(score_dckt:dict, param_name='max_depth', xlog=False):
 
 def print_scores(score_dict:dict):
     df_score = pd.DataFrame.from_dict(score_dict, orient='index')
-    print('| {:6} | {:7} | {:6} | {:10} |'.format('index', 
+    print('| {:11} | {:7} | {:6} | {:10} |'.format('par. value', 
                                                   'f1_mean', 
                                                   'f1_std', 
                                                   'precission'))
@@ -309,7 +342,7 @@ def print_scores(score_dict:dict):
         f1_std = np.round(np.std(df_score.test_f1[i]), decimals=4)
         precis_mean = np.round(np.mean(df_score.test_precision[i]), decimals=3)
         
-        print('| {:6} | {:7} | {:6} | {:10} |'.format(index, 
+        print('| {:11} | {:7} | {:6} | {:10} |'.format(index, 
                                                       f1_mean, 
                                                       f1_std, 
                                                       precis_mean))
