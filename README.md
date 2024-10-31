@@ -8,9 +8,9 @@
 ### Instalation
 - clone reprository 
 - download data from https://www.kaggle.com/c/DontGetKicked/data?select=test.csv
-- unpack files to  to /data/
+- unpack files to /data/
 - install enviroment from environment.yaml
-- copy notebooks from /notebooks_clean/  to project folder or add coresponded cde lines from path_init.ipynb to the notebooks head
+- copy notebooks from /notebooks_clean/  to project folder or add coresponded code lines from path_init.ipynb to the notebooks head
 - run notebooks in the marked order (or make train-test split with file names pointed in /data/readme_data.txt)
 
 
