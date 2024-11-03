@@ -92,7 +92,9 @@ def norm_submodel(df:pd.DataFrame):
     df_.drop(columns=['L_tmp'], inplace=True)
     df_['L'] = df_['L'].str.replace('L', '')
     
-    ## extract spesial terms
+    ## extract spesial terms to a binary columns
+    ## the terms appear atleast 2 times in different combinations => 
+    ## => information should be splited for normal form 
     lst = ['CAB', 'CREW', 'EXT', 'SPORTBACK', 'SPORT', 'QUAD', 'HARDTOP', 'HYBRID', 
            'PREMIER', 'PREMIUM',  'LIMITED', 'POPULAR', 'COMFORT', 'CARGO', 'SPECIAL', 'DELUXE',
            'CLASSIC', 'VALUE', 'PLUS', 'PANEL', 'TRAC',
@@ -102,17 +104,20 @@ def norm_submodel(df:pd.DataFrame):
            ]
     
     for word in lst:
-        df_[word] = df_['Remaining'].str.extract(f'({word})')
+        mask = df_['Remaining'].str.contains(f'{word}')
+        df_.loc[mask, word] = 1 
+        df_[word] = df_[word].fillna(0).astype(int)       
         df_['Remaining'] = df_['Remaining'].str.replace(word, '')
-    
+        # print(word, ':', df_[word].sum())
     
     ## extract first word 
     df_[['Type', 'sbTrim']] = df_['Remaining'].str.extract(r'(^\S+)\s*(.*)')
     df_['sbTrim'] = df_['sbTrim'].str.strip() 
     df_ = df_.drop(columns='Remaining')   
-    
-    
-  
+    mask = df_['sbTrim'] == ''
+    # print(mask.sum())
+    df_.loc[mask, 'sbTrim' ] = 'empty'
+      
     return df_
     
 
