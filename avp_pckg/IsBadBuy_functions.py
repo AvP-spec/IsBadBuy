@@ -67,3 +67,54 @@ def calc_price_diff(df):
     
     df_ = df_.drop(columns=cols)
     return df_
+
+
+def norm_submodel(df:pd.DataFrame):
+    '''split submodel string in columns'''
+    df_ = df.copy()
+    
+    ## misprint correctoions
+    df_['SubModel'] = df_['SubModel'].str.replace('HATCKBACK', 'HATCHBACK')
+    df_['SubModel'] = df_['SubModel'].str.replace('HARTOP', 'HARDTOP')
+    df_['SubModel'] = df_['SubModel'].str.replace('LIMTED', 'LIMITED')
+    
+    ## extract 2D an 4D from the sting \d = didgit, D=D, \s = space, ()? = if exist 
+    df_['D'] = df_['SubModel'].str.extract(r'(\dD\s)?')
+    df_['Remaining'] = df_['SubModel'].str.replace(r'(\dD\s*)', '', regex=True)
+    ## extract engine volume (4.6L) with L
+    df_[['L']] = df_['Remaining'].str.extract(r'(\d\.\dL)')
+    df_['Remaining'] = df_['Remaining'].str.replace(r'(\d\.\dL)', '', regex=True)
+    ## extract engine volume (4.6 ) whithout L
+    df_[['L_tmp']] = df_['Remaining'].str.extract(r'(\d\.\d)')
+    df_['Remaining'] = df_['Remaining'].str.replace(r'(\d\.\d)', '', regex=True)
+    mask = df_['L_tmp'].notna()
+    df_.loc[mask, 'L'] = df_['L_tmp']
+    df_.drop(columns=['L_tmp'], inplace=True)
+    df_['L'] = df_['L'].str.replace('L', '')
+    ## TO DO remove L 
+    
+    
+    ## extract spesial terms
+    lst = ['CAB', 'CREW', 'EXT', 'SPORTBACK', 'SPORT', 'QUAD', 'HARDTOP', 'HYBRID', 
+           'PREMIER', 'PREMIUM',  'LIMITED', 'POPULAR', 'COMFORT', 'CARGO', 'SPECIAL', 'DELUXE',
+           'CLASSIC', 'VALUE', 'PLUS', 'PANEL', 'TRAC'
+           'TURBO', 'TOURING', 'GRAND', 'CUSTOM', 'LUXURY', 'CONVENIENCE', 'SIGNATURE',
+           'NAVIGATION', 'AUTO', 'DURATEC', 'HEMI', 'AWD', 'PACKAGE', 'HIGHLINE', 'PRERUNNER',
+           '5SP', '6SP', 'FFV', 'ZX5', 'ZX4', 'ZX3', 'ZX2'
+           ]
+    
+    for word in lst:
+        df_[word] = df_['Remaining'].str.extract(f'({word})')
+        df_['Remaining'] = df_['Remaining'].str.replace(word, '')
+    
+    
+    ## extract first word 
+    df_[['Type', 'sbTrim']] = df_['Remaining'].str.extract(r'(^\S+)\s*(.*)')
+    df_['sbTrim'] = df_['sbTrim'].str.strip() 
+    df_ = df_.drop(columns='Remaining')   
+    
+    
+  
+    return df_
+    
+
