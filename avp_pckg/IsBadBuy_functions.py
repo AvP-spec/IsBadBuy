@@ -91,13 +91,11 @@ def norm_submodel(df:pd.DataFrame):
     df_.loc[mask, 'L'] = df_['L_tmp']
     df_.drop(columns=['L_tmp'], inplace=True)
     df_['L'] = df_['L'].str.replace('L', '')
-    ## TO DO remove L 
-    
     
     ## extract spesial terms
     lst = ['CAB', 'CREW', 'EXT', 'SPORTBACK', 'SPORT', 'QUAD', 'HARDTOP', 'HYBRID', 
            'PREMIER', 'PREMIUM',  'LIMITED', 'POPULAR', 'COMFORT', 'CARGO', 'SPECIAL', 'DELUXE',
-           'CLASSIC', 'VALUE', 'PLUS', 'PANEL', 'TRAC'
+           'CLASSIC', 'VALUE', 'PLUS', 'PANEL', 'TRAC',
            'TURBO', 'TOURING', 'GRAND', 'CUSTOM', 'LUXURY', 'CONVENIENCE', 'SIGNATURE',
            'NAVIGATION', 'AUTO', 'DURATEC', 'HEMI', 'AWD', 'PACKAGE', 'HIGHLINE', 'PRERUNNER',
            '5SP', '6SP', 'FFV', 'ZX5', 'ZX4', 'ZX3', 'ZX2'
