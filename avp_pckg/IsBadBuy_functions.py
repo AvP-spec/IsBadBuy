@@ -100,8 +100,9 @@ def norm_submodel(df:pd.DataFrame):
            'CLASSIC', 'VALUE', 'PLUS', 'PANEL', 'TRAC',
            'TURBO', 'TOURING', 'GRAND', 'CUSTOM', 'LUXURY', 'CONVENIENCE', 'SIGNATURE',
            'NAVIGATION', 'AUTO', 'DURATEC', 'HEMI', 'AWD', 'PACKAGE', 'HIGHLINE', 'PRERUNNER',
-           '5SP', '6SP', 'FFV', 'ZX5', 'ZX4', 'ZX3', 'ZX2'
+           '5SP', '6SP', 'FFV', 'XUV', 'ZX5', 'ZX4', 'ZX3', 'ZX2', 'ZWD'
            ]
+    ## ChatGPT: ZX2 = 2D, ZX3 = 3D, ..., ZX5 = 5D, ZWD = Wagon
     
     for word in lst:
         mask = df_['Remaining'].str.contains(f'{word}')
@@ -117,7 +118,159 @@ def norm_submodel(df:pd.DataFrame):
     mask = df_['sbTrim'] == ''
     # print(mask.sum())
     df_.loc[mask, 'sbTrim' ] = 'empty'
+    df_.loc[:, 'sbTrim'] = df_.loc[:, 'sbTrim'].fillna('empty')
       
     return df_
+ 
+def expand_truncated(df, col_mame:str,  trunc:list, replasment:str ):
+    df_ = df.copy()
+    pattern = r'(\s+' + '|'.join(trunc) + r')$'
+    df_[col_mame] = df_[col_mame].str.replace(pattern, replasment, regex=True).str.strip()
+    return df_
+ 
+def norm_model(df:pd.DataFrame):
+    df_ = df.copy()
     
+    ## misprints
+    df_['Model'] = df_['Model'].str.replace(' I 4', ' I-4')
+    
+    df_['Model'] = df_['Model'].str.replace('ENVOY 2WD 6C 4.2L I-', 
+                                                    'ENVOY 2WD 6C 4.2L')
+    df_['Model'] = df_['Model'].str.replace('ENVOY 4WD 6C 4.2L I-', 
+                                                    'ENVOY 4WD 6C 4.2L')
+    df_['Model'] = df_['Model'].str.replace('PICKU', 'PICKUP')
+    df_['Model'] = df_['Model'].str.replace('CAMRY 4C EI I-4 2.2L', 
+                                            'CAMRY 4C EFI I-4 2.2L')
+    df_['Model'] = df_['Model'].str.replace('ESCORT 4-FI-2.0L', 
+                                            'ESCORT 4C MFI 2.0L')
+    ## TO DO does not work
+    df_['Model'] = df_['Model'].str.replace('3.2 TL 3.2L V6 FI DOHC', 
+                                            'TL 3.2L V6 SFI DOHC')
+    
+    df_['Model'] = df_['Model'].str.replace('DOCH', 'DOHC')
+    
+    df_['Model'] = df_['Model'].str.replace('LE SABR', 'LE SABRE')
+    df_['Model'] = df_['Model'].str.replace('LE SABREE', 'LE SABRE')
+    df_['Model'] = df_['Model'].str.replace('SILHOUETT', 'SILHOUETTE')
+    df_['Model'] = df_['Model'].str.replace('PROTEG', 'PROTEGE')
+    df_['Model'] = df_['Model'].str.replace('FIVE HUNDRE', 'FIVE HUNDRED')
+    ## TO DO does not work
+    df_['Model'] = df_['Model'].str.replace('VIB EFI', 'VIBE EFI')
+    ## F -> Vulcan ?? ChatGPT
+    df_['Model'] = df_['Model'].str.replace('TAURUS 3.0L V6 EFI F', 
+                                            'TAURUS 3.0L V6 EFI')
+    
+    df_['Model'] = df_['Model'].str.replace('2500 SILVERADO PICKUP', 
+                                            '2500HD SILVERADO PICKUP')
+    
+    df_['Model'] = df_['Model'].str.replace('Multiple En', 'Multiple Eng')
+    df_['Model'] = df_['Model'].str.replace('Multiple Engg', 
+                                            'Multiple Eng')
+    df_['Model'] = df_['Model'].str.replace('Multiple Engi', 
+                                            'Multiple Eng')
+    df_['Model'] = df_['Model'].str.replace('Multipl', 
+                                            'Multiple Eng')
+    df_['Model'] = df_['Model'].str.replace('Multiple Enge Eng', 
+                                            'Multiple Eng')
+    
+    df_['Model'] = df_['Model'].str.replace(' EI ', ' EFI ')
+    
+    ## HO => for esier removemal
+    ## TO DO doesnot work
+    df_['Model'] = df_['Model'].str.replace('MFI HO', 
+                                            'MFI HIHGUOT')
+    
+    ## truncated entries
+    # SPI - Single Point Injection (SPI != SFI)
+    
+    ## MPI = MFI = M = MP = MF - Multiport Fuel Injection
+    lst = ['MP', 'MF', 'M'] 
+    df_ = expand_truncated(df_, col_mame='Model', trunc=lst, replasment=' MFI')
+    df_['Model'] = df_['Model'].str.replace(' MPI', ' MFI', regex=True).str.strip()
+    ## EFI = EF = EI = E - Electronic Fuel Injection
+    lst = ['/EF', 'EF', 'E', 'EI']
+    df_ = expand_truncated(df_, col_mame='Model', trunc=lst, replasment=' EFI')
+    ## SFI - Sequential Fuel Injection
+    df_ = expand_truncated(df_, col_mame='Model', trunc=['SF'], replasment=' SFI')
+    ## DOHC=DOH=DO=D -Dual Overhead Camshaft
+    lst = ['DOH', 'DO', 'D']
+    df_ = expand_truncated(df_, col_mame='Model', trunc=lst, replasment=' DOHC')
+    ## SO - Single Overhead Camshaft => transfer to SOHC, show similarity with DOHC
+    df_ = expand_truncated(df_, col_mame='Model', trunc=['SO'], replasment=' SOHC')
+    ## NA = N - Natural Aspiration => NatAsp, for esier removemal
+    df_ = expand_truncated(df_, col_mame='Model', trunc=['NA', 'N'], replasment=' NatAsp')
+    df_['Model'] = df_['Model'].str.replace(' NA ', ' NatAsp ')
+    
+    df_['Model'] = df_['Model'].str.replace(' FW ', ' FWD ')
+    df_['Model'] = df_['Model'].str.replace(' AW ', ' AWD ')
+    # Unspecifi Unsp Unspecified
+    lst = ['Unspecifi', 'Unspecif', 'Unsp']
+    df_ = expand_truncated(df_, col_mame='Model', trunc=lst, replasment='Unspecified')
+    # PIC =  Pick-Up
+    df_ = expand_truncated(df_, col_mame='Model', trunc=['PIC'], replasment=' PICKUP')
+    
+    ## extract  2WD, 4WD, FWD
+    ## 2WD = Two-Wheel Drive, "2WD" typically implies a rear-wheel-drive (RWD)
+    ## FWD = front-wheel drive, all-wheel drive (AWD) = 4WD
+    df_['WD'] = df_['Model'].str.extract(r'(\s.WD)')  
+    df_.loc[:,'Remaining'] = df_['Model'].copy()  
+    df_['Remaining'] = df_['Remaining'].str.replace(r'(\s.WD)', '', regex=True)
+    
+
+    
+    ## extract engine volume (4.6L) with L
+    df_[['model_L']] = df_['Remaining'].str.extract(r'(\d\.\dL)')
+    df_['Remaining'] = df_['Remaining'].str.replace(r'(\d\.\dL)', '', regex=True)
+    ## extract engine volume (4.6 ) whithout L
+    df_[['L_tmp']] = df_['Remaining'].str.extract(r'(\d\.\d)')
+    df_['Remaining'] = df_['Remaining'].str.replace(r'(\d\.\d)', '', regex=True)
+    mask = df_['L_tmp'].notna()
+    df_.loc[mask, 'model_L'] = df_['L_tmp']
+    df_.drop(columns=['L_tmp'], inplace=True)
+    df_['model_L'] = df_['model_L'].str.replace('L', '')
+    
+    df_['Remaining'] = df_['Remaining'].str.replace('/', '')
+
+    
+    ## extrat terms
+    lst = [
+           ' EXT', 'GRAND', ' PICKUP', 'Multiple Eng', 'SOLARA', 
+           'Unspecified', 'SPORT', 'HIHGUOT',
+           ' V6', ' V8', ' 4C', ' 6C', ' V', ' I4', ' I6', ' 2V' ' 4V',
+           'I-4', ' I-6', ' 4B',
+           '1500', '2500HD',
+           ' EFI', ' MFI',' MPI', ' SFI', ' DOHC', ' SOHC', ' DI', 
+           # ' SF', ' EF',  ' DOH',
+           ' SPI', ' XL',
+           #' DO', ' DI',  
+           ' 24V', ' 16V', 'NatAsp', 'MR2',
+           # ' E', ' M', ' PI', ' C', ' P', ' D',
+           ]
+    ## 6C = 6 cylinders, V=V6 = 6 cylinders in V-configuration
+    ## I4, I-4:  an inline 4-cylinder engine
+    ## M - manual transmission?, MPI - Multiport Fuel Injection = MFI
+    
+    ## DOHC=DOH=DO=D -Dual Overhead Camshaft
+    
+    for word in lst:
+        mask = df_['Remaining'].str.contains(f'{word}')
+        df_.loc[mask, word] = 1 
+        df_[word] = df_[word].fillna(0).astype(int)       
+        df_['Remaining'] = df_['Remaining'].str.replace(word, '')
+        df_['Remaining'] = df_['Remaining'].str.strip() 
+
+        
+    ## extract Trim specifikations at the end of the model name:    
+    lst_trim = [
+        '4.', '2.', '5.', '6.',
+        'S', 'I',
+    ]
+    pattern = r'(\s+' + '|'.join(lst_trim) + r')$'
+    df_['Remaining'] = df_['Remaining'].str.strip()
+    df_['mdTrim'] = df_['Remaining'].str.extract(pattern)
+    df_['Remaining'] = df_['Remaining'].str.replace(pattern, '', regex=True).str.strip()
+    
+    df_.loc[:, 'ModelShort'] = df_['Remaining'].copy()
+   # df_.drop(columns=['Remaining'], inplace=True)
+    return df_
 
