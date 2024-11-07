@@ -122,58 +122,88 @@ def norm_submodel(df:pd.DataFrame):
       
     return df_
  
-def expand_truncated(df, col_mame:str,  trunc:list, replasment:str ):
+def expand_truncated(df, col_mame:str,  trunc:list, replacement:str ):
     df_ = df.copy()
-    pattern = r'(\s+' + '|'.join(trunc) + r')$'
-    df_[col_mame] = df_[col_mame].str.replace(pattern, replasment, regex=True).str.strip()
+    pattern = r'(\s+(' + '|'.join(trunc) + r'))$'
+    df_[col_mame] = df_[col_mame].str.replace(pattern, replacement, regex=True).str.strip()
     return df_
- 
-def norm_model(df:pd.DataFrame):
+
+def mistprints_model(df:pd.DataFrame):
+    
     df_ = df.copy()
     
-    ## misprints
-    df_['Model'] = df_['Model'].str.replace(' I 4', ' I-4')
+    lst = ['Multipl', 'Multiple E', 'Multiple En', 'Multiple Eng', 
+           'Multiple Engi', 'Multiple Engin', 'Multiple Engine'] 
+    df_ = expand_truncated(df_, col_mame='Model', trunc=lst, replacement=' Multiple')
     
-    df_['Model'] = df_['Model'].str.replace('ENVOY 2WD 6C 4.2L I-', 
-                                                    'ENVOY 2WD 6C 4.2L')
-    df_['Model'] = df_['Model'].str.replace('ENVOY 4WD 6C 4.2L I-', 
-                                                    'ENVOY 4WD 6C 4.2L')
-    df_['Model'] = df_['Model'].str.replace('PICKU', 'PICKUP')
+    df_['Model'] = df_['Model'].str.replace('6C 4.2L I-', '6C 4.2L') # 'ENVOY 4WD 6C 4.2L'
+    
+    lst = ['PICKU', 'PIC']
+    df_ = expand_truncated(df_, col_mame='Model', trunc=lst, replacement=' PICKUP')
+    
     df_['Model'] = df_['Model'].str.replace('CAMRY 4C EI I-4 2.2L', 
                                             'CAMRY 4C EFI I-4 2.2L')
+    df_['Model'] = df_['Model'].str.replace('ECLIPSE EI V6 3.0L S', 
+                                            'ECLIPSE EFI V6 3.0L SFI')
+    
     df_['Model'] = df_['Model'].str.replace('ESCORT 4-FI-2.0L', 
                                             'ESCORT 4C MFI 2.0L')
-    ## TO DO does not work
-    df_['Model'] = df_['Model'].str.replace('3.2 TL 3.2L V6 FI DOHC', 
-                                            'TL 3.2L V6 SFI DOHC')
     
-    df_['Model'] = df_['Model'].str.replace('DOCH', 'DOHC')
-    
-    df_['Model'] = df_['Model'].str.replace('LE SABR', 'LE SABRE')
-    df_['Model'] = df_['Model'].str.replace('LE SABREE', 'LE SABRE')
-    df_['Model'] = df_['Model'].str.replace('SILHOUETT', 'SILHOUETTE')
-    df_['Model'] = df_['Model'].str.replace('PROTEG', 'PROTEGE')
-    df_['Model'] = df_['Model'].str.replace('FIVE HUNDRE', 'FIVE HUNDRED')
-    ## TO DO does not work
-    df_['Model'] = df_['Model'].str.replace('VIB EFI', 'VIBE EFI')
-    ## F -> Vulcan ?? ChatGPT
     df_['Model'] = df_['Model'].str.replace('TAURUS 3.0L V6 EFI F', 
                                             'TAURUS 3.0L V6 EFI')
     
     df_['Model'] = df_['Model'].str.replace('2500 SILVERADO PICKUP', 
                                             '2500HD SILVERADO PICKUP')
+    lst = ['SF', 'S']
+    df_ = expand_truncated(df_, col_mame='Model',  trunc=lst, replacement=' SFI')
     
-    df_['Model'] = df_['Model'].str.replace('Multiple En', 'Multiple Eng')
-    df_['Model'] = df_['Model'].str.replace('Multiple Engg', 
-                                            'Multiple Eng')
-    df_['Model'] = df_['Model'].str.replace('Multiple Engi', 
-                                            'Multiple Eng')
-    df_['Model'] = df_['Model'].str.replace('Multipl', 
-                                            'Multiple Eng')
-    df_['Model'] = df_['Model'].str.replace('Multiple Enge Eng', 
-                                            'Multiple Eng')
+    lst = ['FI DO']
+    df_ = expand_truncated(df_, col_mame='Model',  trunc=lst, replacement=' SFI DOHC')
+    ## DOHC=DOH=DO=D -Dual Overhead Camshaft
+    lst = ['DOH', 'DO', 'D']
+    df_ = expand_truncated(df_, col_mame='Model', trunc=lst, replacement=' DOHC')
+    # EFI = EF = EI = E - Electronic Fuel Injection
+    lst = ['/EF', 'EF', 'E', 'EI']#  ,
+    df_ = expand_truncated(df_, col_mame='Model', trunc=lst, replacement=' EFI')
     
-    df_['Model'] = df_['Model'].str.replace(' EI ', ' EFI ')
+
+    
+    return df_
+    
+ 
+def norm_model(df:pd.DataFrame):
+    print('norm_model() echo')
+    df_ = df.copy()
+    
+    ## misprints
+    df_['Model'] = df_['Model'].str.replace(' I 4', ' I-4')
+    
+
+    ## TO DO does not work ## does not exist?
+    df_['Model'] = df_['Model'].str.replace('3.2 TL 3.2L V6 FI DOHC', 
+                                            'TL 3.2L V6 SFI DOHC')
+    
+    df_['Model'] = df_['Model'].str.replace('DOCH', 'DOHC')
+    
+    # df_['Model'] = df_['Model'].str.replace('LE SABR', 'LE SABRE')
+    # df_['Model'] = df_['Model'].str.replace('LE SABREE', 'LE SABRE')
+    df_['Model'] = df_['Model'].str.replace('SILHOUETT', 'SILHOUETTE')
+    df_['Model'] = df_['Model'].str.replace('PROTEG', 'PROTEGE')
+    df_['Model'] = df_['Model'].str.replace('FIVE HUNDRE', 'FIVE HUNDRED')
+    
+    ## TO DO does not work
+    # df_['Model'] = df_['Model'].str.replace('VIB EFI', 'VIBE EFI')
+    # df_['Model'] = df_['Model'].str.replace(r'\bVIB\s+EFI\b', 'VIBE EFI', regex=True, case=False)
+    # df_['Model'] = df_['Model'].str.replace(r'VIB[\W\s]*EFI', 'VIBE EFI', regex=True)
+    print("Before replacement:", df_['Model'][df_['Model'].str.contains('VIB EFI', na=False)].head(2))
+    df_['Model'] = df_['Model'].str.replace('VIB EFI', 'VIBE EFI', regex=False)
+    print("After replacement:", df_['Model'][df_['Model'].str.contains('VIBE EFI', na=False)].head(2))
+    
+
+
+
+
+    
     
     ## HO => for esier removemal
     ## TO DO doesnot work
@@ -192,9 +222,8 @@ def norm_model(df:pd.DataFrame):
     df_ = expand_truncated(df_, col_mame='Model', trunc=lst, replasment=' EFI')
     ## SFI - Sequential Fuel Injection
     df_ = expand_truncated(df_, col_mame='Model', trunc=['SF'], replasment=' SFI')
-    ## DOHC=DOH=DO=D -Dual Overhead Camshaft
-    lst = ['DOH', 'DO', 'D']
-    df_ = expand_truncated(df_, col_mame='Model', trunc=lst, replasment=' DOHC')
+
+
     ## SO - Single Overhead Camshaft => transfer to SOHC, show similarity with DOHC
     df_ = expand_truncated(df_, col_mame='Model', trunc=['SO'], replasment=' SOHC')
     ## NA = N - Natural Aspiration => NatAsp, for esier removemal
