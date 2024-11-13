@@ -25,10 +25,12 @@ from sklearn.model_selection import cross_validate # for multiple score!!
 from sklearn.metrics import classification_report, accuracy_score, recall_score, f1_score, precision_score
 
 class PrepareColsBase:
-    def __init__(self, cols_cat:list, cols_num:list, max_cat:int) -> None:
+    def __init__(self, cols_cat:list, cols_num:list, 
+                 max_cat:int, cols_binary = []) -> None:
         self.cols_cut = cols_cat
         self.cols_num = cols_num
         self.max_cat = max_cat
+        self.cols_binary = cols_binary
         print('class PrepareColsBase echo')
         
     def make_pipe(self):
@@ -41,11 +43,16 @@ class PrepareColsBase:
                 ('impute_null', SimpleImputer(strategy='constant', fill_value=0)),
                 ("scaler", StandardScaler()) # not neseccary for tree estimator
             ])
+        
+        pipe_binary = Pipeline(steps=[
+            ('impute_null', SimpleImputer(strategy='constant', fill_value=0)),
+        ])
 
         prepare_cols = ColumnTransformer(
                 transformers=[
                     ('transform_categorical', pipe_cat, self.cols_cut),
-                    ('transform_numerical', pipe_num, self.cols_num)
+                    ('transform_numerical', pipe_num, self.cols_num),
+                    ('keep bynary cols', pipe_binary, self.cols_binary)
                 ],
                 remainder='drop',
             )
@@ -194,10 +201,11 @@ def cross_validate_pipe(X,          # features
                         kwards_fixed = {
                             'class_weight':'balanced', 
                             'random_state':42
-                            } # key words for the model
+                            }, # key words for the model
+                        cols_binary = [],
                         ):
-    '''Calculate Cross-Validation curves for f1, precision and recall metrics 
-    for selection of a model parameters. 
+    '''Calculate Cross-Validation curves for 
+    f1, precision and recall metrics for selection of a model parameters. 
     
     Parameters:
     -----------
@@ -249,7 +257,8 @@ def cross_validate_pipe(X,          # features
     
     pipe_dickt = {'base': PrepareColsBase(cols_cat=cols_cat, 
                                    cols_num=cols_num_,
-                                   max_cat=max_cat).make_pipe(),
+                                   max_cat=max_cat,
+                                   cols_binary=cols_binary).make_pipe(),
                   
                   'TargetEncoder': PrepareColsTEncoder(cols_catS=cols_catS,
                                      cols_catL=cols_catL, 
