@@ -68,59 +68,6 @@ def calc_price_diff(df):
     df_ = df_.drop(columns=cols)
     return df_
 
-
-def norm_submodel(df:pd.DataFrame):
-    '''split submodel string in columns'''
-    df_ = df.copy()
-    
-    ## misprint correctoions
-    df_['SubModel'] = df_['SubModel'].str.replace('HATCKBACK', 'HATCHBACK')
-    df_['SubModel'] = df_['SubModel'].str.replace('HARTOP', 'HARDTOP')
-    df_['SubModel'] = df_['SubModel'].str.replace('LIMTED', 'LIMITED')
-    
-    ## extract 2D an 4D from the sting \d = didgit, D=D, \s = space, ()? = if exist 
-    df_['D'] = df_['SubModel'].str.extract(r'(\dD\s)?')
-    df_['Remaining'] = df_['SubModel'].str.replace(r'(\dD\s*)', '', regex=True)
-    ## extract engine volume (4.6L) with L
-    df_[['L']] = df_['Remaining'].str.extract(r'(\d\.\dL)')
-    df_['Remaining'] = df_['Remaining'].str.replace(r'(\d\.\dL)', '', regex=True)
-    ## extract engine volume (4.6 ) whithout L
-    df_[['L_tmp']] = df_['Remaining'].str.extract(r'(\d\.\d)')
-    df_['Remaining'] = df_['Remaining'].str.replace(r'(\d\.\d)', '', regex=True)
-    mask = df_['L_tmp'].notna()
-    df_.loc[mask, 'L'] = df_['L_tmp']
-    df_.drop(columns=['L_tmp'], inplace=True)
-    df_['L'] = df_['L'].str.replace('L', '')
-    
-    ## extract spesial terms to a binary columns
-    ## the terms appear atleast 2 times in different combinations => 
-    ## => information should be splited for normal form 
-    lst = ['CAB', 'CREW', 'EXT', 'SPORTBACK', 'SPORT', 'QUAD', 'HARDTOP', 'HYBRID', 
-           'PREMIER', 'PREMIUM',  'LIMITED', 'POPULAR', 'COMFORT', 'CARGO', 'SPECIAL', 'DELUXE',
-           'CLASSIC', 'VALUE', 'PLUS', 'PANEL', 'TRAC',
-           'TURBO', 'TOURING', 'GRAND', 'CUSTOM', 'LUXURY', 'CONVENIENCE', 'SIGNATURE',
-           'NAVIGATION', 'AUTO', 'DURATEC', 'HEMI', 'AWD', 'PACKAGE', 'HIGHLINE', 'PRERUNNER',
-           '5SP', '6SP', 'FFV', 'XUV', 'ZX5', 'ZX4', 'ZX3', 'ZX2', 'ZWD'
-           ]
-    ## ChatGPT: ZX2 = 2D, ZX3 = 3D, ..., ZX5 = 5D, ZWD = Wagon
-    
-    for word in lst:
-        mask = df_['Remaining'].str.contains(f'{word}')
-        df_.loc[mask, word] = 1 
-        df_[word] = df_[word].fillna(0).astype(int)       
-        df_['Remaining'] = df_['Remaining'].str.replace(word, '')
-        # print(word, ':', df_[word].sum())
-    
-    ## extract first word 
-    df_[['Type', 'sbTrim']] = df_['Remaining'].str.extract(r'(^\S+)\s*(.*)')
-    df_['sbTrim'] = df_['sbTrim'].str.strip() 
-    df_ = df_.drop(columns='Remaining')   
-    mask = df_['sbTrim'] == ''
-    # print(mask.sum())
-    df_.loc[mask, 'sbTrim' ] = 'empty'
-    df_.loc[:, 'sbTrim'] = df_.loc[:, 'sbTrim'].fillna('empty')
-      
-    return df_
  
  
 def expand_truncated(df, col_mame:str,  trunc:list, replacement:str ):
@@ -173,9 +120,6 @@ def mistprints_model(df:pd.DataFrame):
                                             ' AWD 6C')
     df_['Model'] = df_['Model'].str.replace('TRAILBLAZER 2WD 6C 4', 
                                             'TRAILBLAZER 2WD 6C')
-    print('TRAILBLAZER 2WD 6C')
-    print(' AWD 6C')
-
     lst = ['SF', 'S']
     df_ = expand_truncated(df_, col_mame='Model',  trunc=lst, replacement=' SFI')
     lst = ['SM', 'SMP']
@@ -250,7 +194,7 @@ def norm_model(df:pd.DataFrame):
     ## extrat terms
     lst = [
            ' EXT', 'GRAND', ' PICKUP', 'Multiple', 'SOLARA', 
-           'Unspecified', 'SPORT', 'HighOutput',
+           'Unspecified', ' SPORT ', 'HighOutput',
            ' V6', ' V8', ' 4C', ' 6C', ' 5C', ' V', ' I4', ' I5', ' I6', ' 2V', ' 4V', 
            ' 2B', ' 4B',
            '1500', '2500', # car load
@@ -265,12 +209,114 @@ def norm_model(df:pd.DataFrame):
     
     for word in lst:
         mask = df_['Remaining'].str.contains(f'{word}')
-        df_.loc[mask, word] = 1 
-        df_[word] = df_[word].fillna(0).astype(int)       
+        df_.loc[mask, word.strip()] = 1 
+        df_[word.strip()] = df_[word.strip()].fillna(0).astype(int)       
         df_['Remaining'] = df_['Remaining'].str.replace(word, '')
         df_['Remaining'] = df_['Remaining'].str.strip() 
     
-    df_.loc[:, 'ModelShort'] = df_['Remaining'].copy()
+    #df_.loc[:, 'ModelShort'] = df_['Remaining'].copy()
+    df_ = df_.rename(columns={'Remaining': 'ModelShort'})
 
     return df_
 
+   
+def clean_transmission(df):
+    if 'Transmission' not in df.columns:
+        print('no Transmission coulumn')
+        return df  
+    else:
+        print(' clean_transmission echo')
+        df.loc[:, 'Transmission'] = df['Transmission'].str.upper()
+        mask = df['Transmission'].isna() # == 'empty'
+        df.loc[mask, 'Transmission'] = 'AUTO'           
+        return df
+
+def mistprints_submodel(df:pd.DataFrame):
+    df_ = df.copy()
+    df_['SubModel'] = df_['SubModel'].str.replace('HATCKBACK', 'HATCHBACK')
+    df_['SubModel'] = df_['SubModel'].str.replace('HARTOP', 'HARDTOP')
+    df_['SubModel'] = df_['SubModel'].str.replace('LIMTED', 'LIMITED')
+    # dublicated model name
+    df_['SubModel'] = df_['SubModel'].str.replace('MAZDA3 ', '')
+    df_['SubModel'] = df_['SubModel'].str.replace('MAZDA5 ', '')
+    return df_ 
+           
+def norm_submodel(df:pd.DataFrame):
+    '''split submodel string in columns'''
+    df_ = df.copy()
+    
+    ## extract 2D an 4D from the sting \d = didgit, D=D, \s = space, ()? = if exist 
+    df_['D'] = df_['SubModel'].str.extract(r'(\dD\s)?')
+    df_['Remaining'] = df_['SubModel'].str.replace(r'(\dD\s*)', '', regex=True)
+    ## extract engine volume (4.6L) with L
+    df_[['L']] = df_['Remaining'].str.extract(r'(\d\.\dL)')
+    df_['Remaining'] = df_['Remaining'].str.replace(r'(\d\.\dL)', '', regex=True)
+    ## extract engine volume (4.6 ) whithout L
+    df_[['L_tmp']] = df_['Remaining'].str.extract(r'(\d\.\d)')
+    df_['Remaining'] = df_['Remaining'].str.replace(r'(\d\.\d)', '', regex=True)
+    mask = df_['L_tmp'].notna()
+    df_.loc[mask, 'L'] = df_['L_tmp']
+    df_.drop(columns=['L_tmp'], inplace=True)
+    df_['L'] = df_['L'].str.replace('L', '')
+    
+    ## extract spesial terms to a binary columns
+    ## the terms appear atleast 2 times in different combinations => 
+    ## => information should be splited for normal form 
+    lst = ['CAB', 'CREW',  'SPORTBACK', 'SPORT', 'QUAD', 'HARDTOP', 'HYBRID', 
+           'PREMIER', 'LIMITED', 'TOURING', 'EDGE', # Trim level
+           'CLASSIC', # Trim level
+           'PREMIUM', 'POPULAR', 'COMFORT', 'CARGO', 'SPECIAL', 'DELUXE',
+            'VALUE', 'PLUS', 'PANEL', 'TRAC',
+           'TURBO',  'GRAND', 'CUSTOM', 'LUXURY', 'CONVENIENCE', 'SIGNATURE',
+           'NAVIGATION', 'AUTO', 'DURATEC', 'HEMI', 'PACKAGE', 'HIGHLINE', 'PRERUNNER',
+           '5SP', '6SP', 'FFV', 'XUV', 'ZX5', 'ZX4', 'ZX3', 'ZX2', 'ZWD',
+           'AWD', 'EXT',
+           ]
+    ## ChatGPT: ZX2 = 2D, ZX3 = 3D, ..., ZX5 = 5D, ZWD = Wagon
+    
+    for word in lst:
+        mask = df_['Remaining'].str.contains(f'{word}')
+        df_.loc[mask, 'sb_'+ word] = 1 
+        df_['sb_'+ word] = df_['sb_' + word].fillna(0).astype(int)       
+        df_['Remaining'] = df_['Remaining'].str.replace(word, '')
+        # print(word, ':', df_[word].sum())
+    
+    ## extract first word 
+    df_['Remaining'] = df_['Remaining'].str.strip() 
+    df_[['Type', 'sb_Trim']] = df_['Remaining'].str.extract(r'(^\S+)\s*(.*)')
+    df_['sb_Trim'] = df_['sb_Trim'].str.strip() 
+    #df_ = df_.drop(columns='Remaining')   
+    mask = df_['sb_Trim'] == ''
+    # print(mask.sum())
+    df_.loc[mask, 'sb_Trim' ] = 'empty'
+    df_.loc[:, 'sb_Trim'] = df_.loc[:, 'sb_Trim'].fillna('empty')
+    
+    ## insert identified Trim keys
+    mask = df_['sb_PREMIER'] == 1
+    df_.loc[mask, 'sb_Trim'] = 'Pre'
+    mask = df_['sb_LIMITED'] == 1
+    df_.loc[mask, 'sb_Trim'] = 'Lim'
+    mask = df_['sb_TOURING'] == 1
+    df_.loc[mask, 'sb_Trim'] = 'Tou'
+    mask = df_['sb_Trim'] == 'ADVENTURER'
+    df_.loc[mask, 'sb_Trim'] = 'Adv'
+    mask = df_['sb_EDGE'] == 1
+    df_.loc[mask, 'sb_Trim'] = 'Edg'
+    mask = df_['sb_CLASSIC'] == 1
+    df_.loc[mask, 'sb_Trim'] = 'Cla'
+    
+    cols = ['sb_PREMIER', 'sb_LIMITED',   'sb_EDGE', 'sb_CLASSIC'] # 'sb_TOURING',
+    df_ = df_.drop(columns=cols)
+    
+      
+    return df_        
+   
+        
+def clean_df(df):
+    df = clean_transmission(df)
+    df = mistprints_model(df)
+    df = norm_model(df)
+    df = mistprints_submodel(df)
+    
+    return df
+        
