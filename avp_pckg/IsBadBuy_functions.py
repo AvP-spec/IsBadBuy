@@ -244,6 +244,7 @@ def mistprints_submodel(df:pd.DataFrame):
 def norm_submodel(df:pd.DataFrame):
     '''split submodel string in columns'''
     df_ = df.copy()
+    df_.loc[df_['SubModel'].isna(), 'SubModel'] = 'empty'
     
     ## extract 2D an 4D from the sting \d = didgit, D=D, \s = space, ()? = if exist 
     df_['D'] = df_['SubModel'].str.extract(r'(\dD\s)?')
@@ -259,15 +260,17 @@ def norm_submodel(df:pd.DataFrame):
     df_.drop(columns=['L_tmp'], inplace=True)
     df_['L'] = df_['L'].str.replace('L', '')
     
+    
     ## extract spesial terms to a binary columns
     ## the terms appear atleast 2 times in different combinations => 
     ## => information should be splited for normal form 
     lst = ['CAB', 'CREW',  'SPORTBACK', 'SPORT', 'QUAD', 'HARDTOP', 'HYBRID', 
-           'PREMIER', 'LIMITED', 'TOURING', 'EDGE', # Trim level
-           'CLASSIC', # Trim level
+           'PREMIER', 'LIMITED', # Trim level
+           'GRAND TOURING', 'TOURING', 'EDGE', # Trim level  'GRAND',
+           'CLASSIC', 'CUSTOM', 'LUXURY', 'SIGNATURE', # Trim level
            'PREMIUM', 'POPULAR', 'COMFORT', 'CARGO', 'SPECIAL', 'DELUXE',
             'VALUE', 'PLUS', 'PANEL', 'TRAC',
-           'TURBO',  'GRAND', 'CUSTOM', 'LUXURY', 'CONVENIENCE', 'SIGNATURE',
+           'TURBO',    'CONVENIENCE', 
            'NAVIGATION', 'AUTO', 'DURATEC', 'HEMI', 'PACKAGE', 'HIGHLINE', 'PRERUNNER',
            '5SP', '6SP', 'FFV', 'XUV', 'ZX5', 'ZX4', 'ZX3', 'ZX2', 'ZWD',
            'AWD', 'EXT',
@@ -275,6 +278,7 @@ def norm_submodel(df:pd.DataFrame):
     ## ChatGPT: ZX2 = 2D, ZX3 = 3D, ..., ZX5 = 5D, ZWD = Wagon
     
     for word in lst:
+        # print(word)
         mask = df_['Remaining'].str.contains(f'{word}')
         df_.loc[mask, 'sb_'+ word] = 1 
         df_['sb_'+ word] = df_['sb_' + word].fillna(0).astype(int)       
@@ -296,6 +300,8 @@ def norm_submodel(df:pd.DataFrame):
     df_.loc[mask, 'sb_Trim'] = 'Pre'
     mask = df_['sb_LIMITED'] == 1
     df_.loc[mask, 'sb_Trim'] = 'Lim'
+    mask = df_['sb_GRAND TOURING'] == 1
+    df_.loc[mask, 'sb_Trim'] = 'GT'
     mask = df_['sb_TOURING'] == 1
     df_.loc[mask, 'sb_Trim'] = 'Tou'
     mask = df_['sb_Trim'] == 'ADVENTURER'
@@ -304,8 +310,23 @@ def norm_submodel(df:pd.DataFrame):
     df_.loc[mask, 'sb_Trim'] = 'Edg'
     mask = df_['sb_CLASSIC'] == 1
     df_.loc[mask, 'sb_Trim'] = 'Cla'
+    mask = df_['sb_CUSTOM'] == 1
+    df_.loc[mask, 'sb_Trim'] = 'Cus'
+    mask = df_['sb_LUXURY'] == 1
+    df_.loc[mask, 'sb_Trim'] = 'Lux'  
+    mask = df_['sb_SIGNATURE'] == 1
+    df_.loc[mask, 'sb_Trim'] = 'Sig'  
     
-    cols = ['sb_PREMIER', 'sb_LIMITED',   'sb_EDGE', 'sb_CLASSIC'] # 'sb_TOURING',
+    mask = df_['sb_SPECIAL'] == 1
+    df_.loc[mask, 'sb_Trim'] = 'Spe'
+    df_.loc[df_['Type'] == 'LS', 'sb_Trim'] = 'LS'
+    df_.loc[df_['Type'] == 'LS', 'Type'] = 'empty'
+    
+    cols = ['sb_PREMIER', 'sb_LIMITED', 'sb_GRAND TOURING',
+            'sb_TOURING','sb_EDGE', 'sb_CLASSIC', 'sb_CUSTOM', 
+            'sb_LUXURY', 'sb_SIGNATURE', 'sb_SPECIAL', 
+            ] # 'sb_TOURING',
+    df_.loc[df_['sb_Trim']=='LAREDO', 'sb_Trim'] = 'Lar'
     df_ = df_.drop(columns=cols)
     
       
@@ -313,10 +334,24 @@ def norm_submodel(df:pd.DataFrame):
    
         
 def clean_df(df):
+    print('clean_df() echo')
     df = clean_transmission(df)
     df = mistprints_model(df)
     df = norm_model(df)
     df = mistprints_submodel(df)
+    df = norm_submodel(df)
+    
+    mask = df['model_L'].isna() &  df['L'].notnull()
+    df.loc[mask, 'model_L' ] = df['L']
+    df = df.drop(columns=['L'])
+    
+    df.loc[:, 'EXT'] = df['sb_EXT']
+    df = df.drop(columns=['sb_EXT'])
+    
+    mask = df['sb_AWD'] == 1
+    df.loc[mask, 'WD'] == ' AWD'
+    df = df.drop(columns=['sb_AWD'])
+    
     
     return df
         
