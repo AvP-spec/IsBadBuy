@@ -1,12 +1,66 @@
 from sklearn.base import BaseEstimator
 from sklearn.base import TransformerMixin
-from avp_pckg.DataFrame import AvPdataFrame 
-from sklearn.preprocessing import OneHotEncoder, StandardScaler 
 from sklearn.compose import ColumnTransformer
 from sklearn.linear_model import RANSACRegressor
+from sklearn.tree import DecisionTreeRegressor
+from sklearn.ensemble import IsolationForest
+from sklearn.preprocessing import OneHotEncoder, StandardScaler, LabelEncoder
+from sklearn.impute import SimpleImputer
+from sklearn.pipeline import Pipeline
+from sklearn.cluster import DBSCAN
+
 import seaborn as sns
+import matplotlib.pyplot as plt
+import pandas as pd
+import numpy as np
+import operator
+
+from avp_pckg.DataFrame import AvPdataFrame
+# from avp_pckg.avp_model_selection import PrepareColsBase
 
 
+class PrepareColsBasePipe:
+    def __init__(self, cols_cat=[], cols_num=[], 
+                 max_cat=25, cols_binary = []) -> None:
+        self.cols_cut = cols_cat
+        self.cols_num = cols_num
+        self.max_cat = max_cat
+        self.cols_binary = cols_binary
+        print('class PrepareColsBasePipe echo')
+        
+    def define_cols(self, X:pd.DataFrame):
+        print('define_cols() echo')
+        df = X.copy()
+        self.cols_cut = df.select_dtypes('object').columns
+        self.cols_num = df.select_dtypes('number').columns
+        ## TO DO define binary columns. 
+        # self.cols_binary = [name for name in self.cols_num if df[name].unique() == [0, 1]]
+        
+        
+    def make_pipe(self):
+        pipe_cat = Pipeline(steps=[
+            ('impute_empty', SimpleImputer(strategy='constant', fill_value='empty')),
+            ('ohe', OneHotEncoder(handle_unknown='infrequent_if_exist', max_categories=self.max_cat)) 
+            ])
+
+        pipe_num = Pipeline(steps=[
+                ('impute_null', SimpleImputer(strategy='constant', fill_value=0)),
+                ("scaler", StandardScaler()) # not neseccary for tree estimator
+            ])
+        
+        pipe_binary = Pipeline(steps=[
+            ('impute_null', SimpleImputer(strategy='constant', fill_value=0)),
+        ])
+
+        prepare_cols = ColumnTransformer(
+                transformers=[
+                    ('transform_categorical', pipe_cat, self.cols_cut),
+                    ('transform_numerical', pipe_num, self.cols_num),
+                    ('keep bynary cols', pipe_binary, self.cols_binary)
+                ],
+                remainder='drop',
+            )
+        return prepare_cols   
                    
 # TransformerMixin, BaseEstimator, AvPdataFrame
 class CatColReducer(TransformerMixin, BaseEstimator,):
@@ -171,6 +225,7 @@ class NumToCatTransformer(TransformerMixin, BaseEstimator,):
 
 
 class LinearImputer(TransformerMixin, BaseEstimator):
+    '''col_y - to be imputed'''
     def __init__(self, 
                  col_x:str, 
                  col_y:str, 
@@ -183,6 +238,7 @@ class LinearImputer(TransformerMixin, BaseEstimator):
         self.verbose = verbose
         self.threshold = threshold  # value=0 if value < threshold
         self.model = None
+        #label_encoder = None
         
     def fit(self, X=None, y=None):
         df_ = X.copy()
@@ -211,18 +267,18 @@ class LinearImputer(TransformerMixin, BaseEstimator):
 
             if self.verbose:
                 sns.regplot(
-                        x=x0, 
-                        y=y0,
-                        # scatter_kws={'s': 10, 'color': 'b'},
-                        line_kws={'color': 'b'}
-                        )  
-                sns.regplot(
                         data= df_,
                         x=self.col_x, 
                         y=self.col_y,
-                        # scatter_kws={'s': 10, 'color': 'b'},
+                        scatter_kws={'s': 3, 'color': 'r'},
                         line_kws={'color': 'r'}
                         )
+                sns.regplot(
+                        x=x0, 
+                        y=y0,
+                        scatter_kws={'s': 3, 'color': 'b'},
+                        line_kws={'color': 'b'}
+                        )  
                         
                         
         return df_
@@ -230,7 +286,7 @@ class LinearImputer(TransformerMixin, BaseEstimator):
 #################################################################
 #################################################################
 class IsBadBuyTransformer(TransformerMixin, BaseEstimator):
-    ''' '''
+    ''' does not bring advantage in comparison with base model'''
     def __init__(self, 
                  cols_cat=[], # categorical column names list
                  cols_num=[], # numerical column name list
@@ -469,4 +525,232 @@ class IsBadBuyTransformer(TransformerMixin, BaseEstimator):
         return 'I am IsBadBuyTransformer'
     
 
+class TreeRegresor(TransformerMixin, BaseEstimator): # 
+    def __init__(self, 
+                 col_target:'str',
+                 cols_reg:'list',
+                 cols_impurity_detection:'list',
+                 nan_condition = ('==', 0),
+                 percent = 1, # percent of outliers in data
+                 verbose = 0,
+                 ) -> None:
+        self.col_target = col_target 
+        self.cols_reg = cols_reg
+        self.cols_impurity_detection = cols_impurity_detection
+        self.tree_regressor = None
+        self.nan_condition = nan_condition
+        self.ops = {'<': operator.lt,
+               '>': operator.gt,
+               '==': operator.eq,
+               '>=': operator.ge,
+               '<=': operator.le
+               }
+        self.verbose = verbose
+        self.percent = percent
+
+        
+    def remove_rows(self, df):
+
+        df_ = df.copy()
+       # mask = df[self.col_target] == rows_value # rows_value=0
+        mask = self.ops[self.nan_condition[0]](df[self.col_target],  
+                                          self.nan_condition[1])
+        df_.drop(df_[mask].index, inplace=True)
+        print(f'number of rows with value {self.nan_condition[0]} {self.nan_condition[1]} removed = {mask.sum()}')
+        mask = df_[self.col_target].isna()
+        df_.drop(df_[mask].index, inplace=True)
+        print(f'number of rows with value isna() removed = {mask.sum()}')
+        return df_
     
+           
+    def remove_outliers(self, X: pd.DataFrame, percent = 1):
+        percent /= 100
+        # reduce df to colums of interest 
+        df = X.loc[:, self.cols_impurity_detection].copy()
+        
+        prepare_cols_imp = PrepareColsBasePipe()
+        prepare_cols_imp.define_cols(df) 
+        isoforest_pipe = Pipeline(steps=[
+        ('preprocessing', prepare_cols_imp.make_pipe()),
+        ('model', IsolationForest(n_jobs=-1, random_state=42, contamination=percent)
+        )])
+        isoforest_pipe.fit(df)
+        isoresult = isoforest_pipe.predict(df)
+        
+        df.loc[:, 'Outliers'] = isoresult
+        mask = df['Outliers'] == -1
+        print('removed outliers rows:', mask.sum())
+        # to return full df 
+        df = X.copy()
+        df.drop(df[mask].index, inplace=True)
+        return df
+   
+    
+    def dbscan_price_dif(self, X):
+        df = X[self.cols_impurity_detection].copy()
+        df = self.remove_rows(df)
+        
+        prepare_cols = PrepareColsBasePipe()
+        prepare_cols.define_cols(df)
+        
+        db_pipe = Pipeline(steps=[
+        ('preprocessing', prepare_cols.make_pipe()),
+        ('db', DBSCAN(eps=0.34)
+        )])
+        
+        db_pipe.fit(df)
+        labels = db_pipe['db'].labels_
+        n_clusters_ = len(set(labels)) - (1 if -1 in labels else 0)
+        n_noise_ = list(labels).count(-1)
+
+        print("Estimated number of clusters: %d" % n_clusters_)
+        print("Estimated number of noise points: %d" % n_noise_)
+        
+        cols = df.columns
+        sns.scatterplot(data=df, x=cols[1], y=cols[0], hue=db_pipe['db'].labels_, s=3)
+        plt.show()
+    
+    
+    def fit(self, X: pd.DataFrame, y=None ):
+        ## for plotting outliers we need that cols_impurity_detection
+        ##  will be in df, so we could not use df = X.loc[:, self.cols_reg].copy()
+        
+        df = X.copy()
+        df = self.remove_rows(df)
+        df = self.remove_outliers(df, percent=self.percent)
+        if self.verbose == 2:
+            ## plot Outliers detected 
+            fig, ax = plt.subplots(figsize=(5,4))
+            ax.set(title="Outliers" )
+            sns.scatterplot(data=X, x=self.cols_impurity_detection[1], 
+                    y=self.cols_impurity_detection[0],
+                    ax=ax,
+                    s=2
+                    )
+            sns.scatterplot(data=df, x=self.cols_impurity_detection[1], 
+                    y=self.cols_impurity_detection[0],
+                    ax=ax,
+                    s=1
+                    )
+            plt.show()
+        
+        ## define target after outliers removement but before df truncation
+        target = df[self.col_target].copy()
+        df = df.loc[:, self.cols_reg]   
+        
+      #  print('TreeRegressor echo: before BasePipe')
+        prepare_cols_reg = PrepareColsBasePipe()
+        prepare_cols_reg.define_cols(df)
+       # print('TreeRegressor echo: BasePipe')
+        self.tree_regressor = Pipeline(steps=[
+        ('preprocessing', prepare_cols_reg.make_pipe()),
+        ('model', DecisionTreeRegressor(max_depth=100, 
+                                        min_samples_leaf=3, 
+                                        random_state=42,)
+        )])
+       # print('TreeRegressor echo: full Pipe inicialized')
+        print(target.isna().sum())
+        self.tree_regressor.fit(df, target)
+       # print('TreeRegressor echo: full Pipe fit')
+
+        if self.verbose > 0:
+            pred_reg = self.tree_regressor.predict(df.loc[:, self.cols_reg])
+            fig, ax = plt.subplots(figsize=(5,4))
+            ax.set(title="Quality of prediction",
+                         xlabel="target",
+                         ylabel="predicted",)
+        
+            ax.scatter(x=target , y=pred_reg, s=1)
+            ax.plot(target, target, color='r')
+            plt.show() 
+            print(target.shape)
+            err = np.sqrt(sum(((target-pred_reg)**2))/target.shape[0])
+            print('fit error', err)
+
+        return self
+    
+    def transform(self, X, y=None):
+        df = X.copy()
+        
+        mask = (df[self.col_target].isna() | 
+                self.ops[self.nan_condition[0]](df[self.col_target],  
+                                               self.nan_condition[1]) )
+       # print(mask.sum())
+        pred_imput = self.tree_regressor.predict(df.loc[mask, self.cols_reg])
+        df.loc[mask, self.col_target] = pred_imput
+        
+     #   print(mask.sum())
+     #   print(pred_imput.shape)
+     #   print('TreeRegressor transform function echo')
+        return df
+    
+
+class StandardOHETransformer(TransformerMixin, BaseEstimator):
+    '''standard scaler and one-hot-encoder with auto recognision 
+    of categorical and numerical columns
+    auto fill NaN as 'empty' or '0'
+    '''
+    def __init__(self, max_cat=25) -> None:
+        self.max_cat = max_cat
+        self.cols_cut = None
+        self.cols_num = None
+        self.cols_binary = []
+        
+        self.pipe_cat = Pipeline(steps=[
+            ('impute_empty', SimpleImputer(strategy='constant', fill_value='empty')),
+            ('ohe', OneHotEncoder(handle_unknown='infrequent_if_exist', max_categories=self.max_cat)) 
+            ])
+        
+        self.pipe_num = Pipeline(steps=[
+                ('impute_null', SimpleImputer(strategy='constant', fill_value=0)),
+                ("scaler", StandardScaler()) # not neseccary for tree estimator
+            ])
+        
+        self.pipe_binary = Pipeline(steps=[
+            ('impute_null', SimpleImputer(strategy='constant', fill_value=0)),
+        ])
+        
+        self.column_transformer = None
+
+        
+    def define_cols(self, X:pd.DataFrame):
+        self.cols_cut = X.select_dtypes('object').columns
+        # print(f'{self.cols_cut=}')
+        ## list() is used to anable list.remove('val) command  
+        ## in determination of binary columns
+        self.cols_num = list(X.select_dtypes('number').columns)   
+        col_dt = X.select_dtypes('datetime').columns
+        if not col_dt.empty:
+            print('StandardOHETransformer columns will be dropped:')
+            print('date-time columns:', col_dt) 
+            
+        for col in self.cols_num:
+            if list(X[col].unique()) == [0, 1]:
+                # print(col)
+                self.cols_binary.append(col)
+                self.cols_num.remove(col)
+        
+        
+    def fit(self, X:pd.DataFrame, y=None):
+        df = X.copy()
+        self.define_cols(df)
+        self.column_transformer = ColumnTransformer(
+                transformers=[
+                    ('transform_categorical', self.pipe_cat, self.cols_cut),
+                    ('transform_numerical', self.pipe_num, self.cols_num),
+                    ('keep bynary cols', self.pipe_binary, self.cols_binary)
+                ],
+                remainder='drop',  # 'passthrough',
+            )
+        self.column_transformer.fit(df)
+       # print('StandardOHETransformer fit finished')
+
+        return self
+    
+    def transform(self, X:pd.DataFrame, y=None):
+        df = X.copy()
+        df = self.column_transformer.transform(df)
+        return df
+    
+    def get_feature_names_out(self):
+        return self.column_transformer.get_feature_names_out()

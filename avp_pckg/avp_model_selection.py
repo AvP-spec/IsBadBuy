@@ -17,9 +17,13 @@ from sklearn.compose import ColumnTransformer
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
+from sklearn.svm import SVC
+from sklearn.neighbors import KNeighborsClassifier
 
 from sklearn.model_selection import validation_curve, cross_val_score
 from sklearn.model_selection import cross_validate # for multiple score!!
+
+from avp_pckg.TransformerCols import StandardOHETransformer
 
 
 from sklearn.metrics import classification_report, accuracy_score, recall_score, f1_score, precision_score
@@ -429,6 +433,55 @@ def cross_validate_IsBadBuy(X,          # features
         ('model', estimator_dickt[estimator_name](**kwards_fixed, **kwargs_par))
      #   ('model', estimator_dickt[estimator_name](class_weight='balanced', random_state=42, **kwargs_par))
      #   ('model', DecisionTreeClassifier(max_depth=depth, class_weight='balanced', random_state=42))
+        ])  
+         
+        score = cross_validate(estimator=pipe_IsBadBuy,  # Corrected estimator
+                              X=X_,
+                              y=y_,
+                              scoring=['f1', 'precision', 'recall'],
+                              return_train_score=True,
+                              cv=cv,
+                              n_jobs=n_jobs)
+
+        score_dickt[value] =  score
+        
+    return score_dickt
+
+
+def cross_validate_transformer(X,          # features
+                        y,          # target
+                        param_name='', # name of parameter for cross-validation curve  
+                        param_range=[],# list of the parameter values
+                        cv=5,        # number of cross validation spits
+                        max_cat=25,    # int, maximum categories for one-hot-encoder and target encoder
+                        estimator_name='tree',
+                      #  diff=True,
+                        n_jobs=-1,
+                        kwards_fixed = {'class_weight':'balanced', 'random_state':42}
+                        ):
+    
+    X_ = X.copy()
+    y_ = y.copy()
+    
+    estimator_dickt = {'tree':DecisionTreeClassifier,
+                    'forest': RandomForestClassifier,
+                    'logistic': LogisticRegression,
+                    'svc' : SVC,
+                    'kn' : KNeighborsClassifier,
+                       }
+    
+    prepare_cols = StandardOHETransformer(
+                                        max_cat=max_cat,          
+                                        )
+    
+    score_dickt = {}
+    for value in param_range:
+        print('cross_validate echo: parameter value = ', value)
+        kwargs_par = {param_name: value}
+     #   print('call pipe_tree')
+        pipe_IsBadBuy = Pipeline(steps=[
+        ('st-ohe_transformer', prepare_cols),
+        ('model', estimator_dickt[estimator_name](**kwards_fixed, **kwargs_par))
         ])  
          
         score = cross_validate(estimator=pipe_IsBadBuy,  # Corrected estimator

@@ -65,7 +65,7 @@ def calc_price_diff(df):
             'MMRCurrentAuctionAveragePrice', 'MMRCurrentAuctionCleanPrice',
             'MMRCurrentRetailAveragePrice', 'MMRCurrentRetailCleanPrice', ]
     
-    df_ = df_.drop(columns=cols)
+    # df_ = df_.drop(columns=cols)
     return df_
 
  
